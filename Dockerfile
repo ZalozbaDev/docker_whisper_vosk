@@ -75,6 +75,7 @@ webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
 -lpthread
 
 RUN mkdir -p /logs/
+RUN mkdir -p /uasr-data/
 
 ############################################
 # Vosk server startup script
