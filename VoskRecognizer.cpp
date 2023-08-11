@@ -9,7 +9,36 @@
 
 #include <cassert>
 
+#include "common.h"
+#include "whisper.h"
+
 int VoskRecognizer::voskRecognizerInstanceId = 1;
+
+// command-line parameters from stream example
+struct whisper_params {
+    int32_t n_threads  = std::min(4, (int32_t) std::thread::hardware_concurrency());
+    int32_t step_ms    = 3000;
+    int32_t length_ms  = 10000;
+    int32_t keep_ms    = 200;
+    int32_t capture_id = -1;
+    int32_t max_tokens = 32;
+    int32_t audio_ctx  = 0;
+
+    float vad_thold    = 0.6f;
+    float freq_thold   = 100.0f;
+
+    bool speed_up      = false;
+    bool translate     = false;
+    bool no_fallback   = false;
+    bool print_special = false;
+    bool no_context    = true;
+    bool no_timestamps = false;
+    bool tinydiarize   = false;
+
+    std::string language  = "en";
+    std::string model     = "models/ggml-base.en.bin";
+    std::string fname_out;
+};
 
 //////////////////////////////////////////////
 VoskRecognizer::VoskRecognizer(int modelId, float sample_rate, const char *configPath)
@@ -26,8 +55,6 @@ VoskRecognizer::VoskRecognizer(int modelId, float sample_rate, const char *confi
 	
 	m_recoState = VoskRecognizerState::UNINIT;
 	
-	loadLibrary();
-	
 	m_configPath = std::string(configPath);
 }
 
@@ -40,9 +67,9 @@ VoskRecognizer::~VoskRecognizer(void)
 	
 	delete(audioLogger);
 	
-	m_recoState = VoskRecognizerState::UNINIT;
+	whisper_free(ctx);
 	
-	unloadLibrary();
+	m_recoState = VoskRecognizerState::UNINIT;
 	
 	delete(vad);
 	
@@ -51,21 +78,6 @@ VoskRecognizer::~VoskRecognizer(void)
 	
 	// don't decrease, let every instance get a unique ID
 	// voskRecognizerInstanceId--;
-}
-
-//////////////////////////////////////////////
-void VoskRecognizer::loadLibrary(void)
-{
-}
-
-//////////////////////////////////////////////
-void VoskRecognizer::libraryError(void)
-{
-}
-
-//////////////////////////////////////////////
-void VoskRecognizer::unloadLibrary(void)
-{
 }
 
 //////////////////////////////////////////////
@@ -80,8 +92,9 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 	{
 		char initStatus;
 
-		// ...
-		
+		// whisper init
+		ctx = whisper_init_from_file(m_configPath.c_str());
+
 		vad = new VADWrapper(3, m_processingSampleRate);
 		
 		audioLogger = new AudioLogger(std::string("/logs/"), m_instanceId);

@@ -39,25 +39,8 @@ private:
 	VoskRecognizerState m_recoState;
 	
 	std::string m_configPath;
-	
-	void *libmInstance;
-	void *recInstance;
-	
-	void loadLibrary(void);
-	void unloadLibrary(void);
-	void libraryError(void);
-	void delayedInitialization(void);
-	
-	void checkRecognizerError(char status, const char *functionName) {
-		if (status != 0) 
-		{
-			char tmp[1000];
-			
-			std::cout << functionName << " error val=" << status << "text=";
-			
-			std::cout << "." << std::endl; 
-		}
-	}
+
+	struct whisper_context* ctx;
 	
 	VADWrapper *vad;
 	

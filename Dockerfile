@@ -58,11 +58,19 @@ RUN cd vosk-server && git checkout 333ac757edd18bb224680cf5460a75afde4a4eba
 RUN cp vosk-api/src/vosk_api.h /
 RUN cp vosk-server/websocket-cpp/asr_server.cpp /
 
+# get whisper.cpp files
+RUN git clone https://github.com/ZalozbaDev/whisper.cpp.git whisper.cpp
+RUN cd whisper.cpp && git checkout a4bb2df36aeb4e6cfb0c1ca9fbcf749ef39cc852
+
+# prepare whisper dependencies
+RUN cd whisper.cpp/ && make ggml.o && make whisper.o
+
 COPY VoskRecognizer.cpp VoskRecognizer.h VADFrame.h VADWrapper.cpp VADWrapper.h RecognitionResult.h \
 AudioLogger.h AudioLogger.cpp vosk_api_wrapper.cpp /
 
-RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -o vosk_whisper_server -I/boost_1_76_0/ -I. \
+RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -o vosk_whisper_server -I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ \
 asr_server.cpp VoskRecognizer.cpp VADWrapper.cpp vosk_api_wrapper.cpp AudioLogger.cpp \
+whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o  \
 webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
 -lpthread
 
