@@ -10,48 +10,17 @@
 #include <cassert>
 
 #include "common.h"
-#include "whisper.h"
 
 int VoskRecognizer::voskRecognizerInstanceId = 1;
-
-// command-line parameters from stream example
-struct whisper_params {
-    int32_t n_threads  = std::min(4, (int32_t) std::thread::hardware_concurrency());
-    int32_t step_ms    = 3000;
-    int32_t length_ms  = 10000;
-    int32_t keep_ms    = 200;
-    int32_t capture_id = -1;
-    int32_t max_tokens = 32;
-    int32_t audio_ctx  = 0;
-
-    float vad_thold    = 0.6f;
-    float freq_thold   = 100.0f;
-
-    bool speed_up      = false;
-    bool translate     = false;
-    bool no_fallback   = false;
-    bool print_special = false;
-    bool no_context    = true;
-    bool no_timestamps = false;
-    bool tinydiarize   = false;
-
-    std::string language  = "en";
-    std::string model     = "models/ggml-base.en.bin";
-    std::string fname_out;
-};
 
 //////////////////////////////////////////////
 VoskRecognizer::VoskRecognizer(int modelId, float sample_rate, const char *configPath)
 {
-	char status;
-	
 	std::cout << "vosk_recognizer_new, instance=" << voskRecognizerInstanceId << " sample_rate=" << sample_rate << std::endl;
 
 	m_modelInstanceId = modelId;
 	m_instanceId      = voskRecognizerInstanceId++;
 	m_inputSampleRate = sample_rate;
-	
-	m_libraryLoaded   = false;
 	
 	m_recoState = VoskRecognizerState::UNINIT;
 	
@@ -61,8 +30,6 @@ VoskRecognizer::VoskRecognizer(int modelId, float sample_rate, const char *confi
 //////////////////////////////////////////////
 VoskRecognizer::~VoskRecognizer(void)
 {
-	char status;
-	
 	std::cout << "vosk_recognizer_free, instance=" << m_instanceId << std::endl;
 	
 	delete(audioLogger);
@@ -90,11 +57,11 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 	// if not yet initalized, do that here and discard this audio
 	if (m_recoState == VoskRecognizerState::UNINIT)
 	{
-		char initStatus;
-
 		// whisper init
 		ctx = whisper_init_from_file(m_configPath.c_str());
 
+		pcmf32.clear();
+		
 		vad = new VADWrapper(3, m_processingSampleRate);
 		
 		audioLogger = new AudioLogger(std::string("/logs/"), m_instanceId);
@@ -138,33 +105,72 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 	while (noMoreData == false)
 	{
 		unsigned int availableChunks = vad->getAvailableChunks();
-		VADWrapperState uttStatus = vad->getUtteranceStatus();
 		
 		while (availableChunks > 0)
 		{
 			std::unique_ptr<VADFrame<VADWrapper::nrVADSamples>> chunk = vad->getNextChunk();
 			
-			// ... provide data here
+			pcmf32.insert(pcmf32.cend(), std::begin(chunk->fSamples), std::end(chunk->fSamples));
 			
 			audioLogger->addChunk(std::move(chunk));
 			
 			availableChunks--;
-			
-			// std::cout << "Push chunks to recognizer, remaining = " << availableChunks << std::endl;
 		}
 		
-		if (uttStatus == VADWrapperState::COMPLETE)
-		{
-			// .. flush data here
-		}
-
 		noMoreData = vad->analyze();
+	}
+	
+	// run whisper on the current state of audio buffer
+	whisper_params params;
+	whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+
+    wparams.print_progress   = false;
+    wparams.print_special    = params.print_special;
+    wparams.print_realtime   = false;
+    wparams.print_timestamps = !params.no_timestamps;
+    wparams.translate        = params.translate;
+    wparams.single_segment   = false; // !use_vad;
+    wparams.max_tokens       = params.max_tokens;
+    wparams.language         = params.language.c_str();
+    wparams.n_threads        = params.n_threads;
+
+    wparams.audio_ctx        = params.audio_ctx;
+    wparams.speed_up         = params.speed_up;
+
+    wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
+
+    // disable temperature fallback
+    //wparams.temperature_inc  = -1.0f;
+    wparams.temperature_inc  = params.no_fallback ? 0.0f : wparams.temperature_inc;
+
+    wparams.prompt_tokens    = nullptr; // params.no_context ? nullptr : prompt_tokens.data();
+    wparams.prompt_n_tokens  = 0;       // params.no_context ? 0       : prompt_tokens.size();
+
+	std::cout << "Push audio to whisper, size=" << pcmf32.size() << std::endl;
+    if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0) {
+    	fprintf(stderr, "whisper_full(): failed to process audio\n");
+    	assert(false);
+    }
+
+    // populate partial result
+    partialResult.clear();
+    
+	const int n_segments = whisper_full_n_segments(ctx);
+	for (int i = 0; i < n_segments; ++i) {
+		const char * text = whisper_full_get_segment_text(ctx, i);
+
+		const int64_t t0 = whisper_full_get_segment_t0(ctx, i);
+		const int64_t t1 = whisper_full_get_segment_t1(ctx, i);
+
+		std::unique_ptr<RecognitionResult> newResult = std::make_unique<RecognitionResult>(const_cast<char*>(text), (unsigned int) t0, (unsigned int) t1, 1.0f);
+		partialResult.push_back(std::move(newResult));
 	}
 	
 	// if we are in idle state (again), a possible partial result is now final
 	if (vad->getUtteranceStatus() == VADWrapperState::IDLE)
 	{
 		promoteToFinalResult();
+		pcmf32.clear();
 	}
 	
 	if (finalResults.size() > 0)
@@ -248,26 +254,5 @@ void VoskRecognizer::promoteToFinalResult(void)
 		finalResults.push_back(finalResult);
 		
 		partialResult.clear();
-	}
-}
-
-//////////////////////////////////////////////
-void VoskRecognizer::resultCallback(char* word, unsigned int startTimeMs, unsigned int endTimeMs, float negLogLikelihood)
-{
-	std::unique_ptr<RecognitionResult> newResult = std::make_unique<RecognitionResult>(word, startTimeMs, endTimeMs, negLogLikelihood);
-	
-	if (partialResult.size() == 0)
-	{
-		partialResult.push_back(std::move(newResult));	
-	}
-	else
-	{
-		// timestamps hopefully show if a new utterance starts (e.g. last one has been flushed)
-		if (newResult->start < partialResult.back()->end)
-		{
-			promoteToFinalResult();
-		}
-
-		partialResult.push_back(std::move(newResult));		
 	}
 }

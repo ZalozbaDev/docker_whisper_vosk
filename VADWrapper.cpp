@@ -102,6 +102,15 @@ int VADWrapper::process(int samplingFrequency, const int16_t* audio_frame, size_
 		// 1 == active, 0 == not active, -1 == error
 		chunk->state = (result == 1) ? VADState::ACTIVE : VADState::OFF;
 		
+		if (result == 1)
+		{
+			// only when data will be used later, we need to convert to float for whisper
+			for (unsigned int tmp = 0; tmp < nrVADSamples; tmp++)
+			{
+				chunk->fSamples[tmp] = (float) (((double) chunk->samples[tmp]) / 32768.0); 
+			}
+		}
+		
 		chunks.push_back(std::move(chunk));
 	}
 	

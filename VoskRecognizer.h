@@ -2,6 +2,7 @@
 #define VOSK_RECOGNIZER_H
 
 #include <iostream>
+#include <vector>
 
 extern "C" {
 #include "vosk_api.h"
@@ -11,7 +12,35 @@ extern "C" {
 #include <RecognitionResult.h>
 #include <AudioLogger.h>
 
+#include "whisper.h"
+
 enum VoskRecognizerState {UNINIT, INIT};
+
+// command-line parameters from stream example
+struct whisper_params {
+    int32_t n_threads  = 12; // TODO hard-coded
+    int32_t step_ms    = 3000;
+    int32_t length_ms  = 10000;
+    int32_t keep_ms    = 200;
+    int32_t capture_id = -1;
+    int32_t max_tokens = 32;
+    int32_t audio_ctx  = 0;
+
+    float vad_thold    = 0.6f;
+    float freq_thold   = 100.0f;
+
+    bool speed_up      = false;
+    bool translate     = false;
+    bool no_fallback   = false;
+    bool print_special = false;
+    bool no_context    = true;
+    bool no_timestamps = false;
+    bool tinydiarize   = false;
+
+    std::string language  = "en";
+    std::string model     = "models/ggml-base.en.bin";
+    std::string fname_out;
+};
 
 //////////////////////////////////////////////
 class VoskRecognizer
@@ -41,6 +70,8 @@ private:
 	std::string m_configPath;
 
 	struct whisper_context* ctx;
+	const int n_samples_30s  = (1e-3 * 30000.0) * WHISPER_SAMPLE_RATE;
+    std::vector<float> pcmf32;
 	
 	VADWrapper *vad;
 	

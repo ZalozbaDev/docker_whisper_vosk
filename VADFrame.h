@@ -8,5 +8,6 @@ class VADFrame
 {
 public:
 	short    samples[numberSamples];
+	float    fSamples[numberSamples];
 	VADState state;
 };
