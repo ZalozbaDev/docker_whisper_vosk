@@ -18,12 +18,12 @@ enum VoskRecognizerState {UNINIT, INIT};
 
 // command-line parameters from stream example
 struct whisper_params {
-    int32_t n_threads  = 12; // TODO hard-coded
+    int32_t n_threads  = 8; // TODO hard-coded
     int32_t step_ms    = 3000;
     int32_t length_ms  = 10000;
     int32_t keep_ms    = 200;
     int32_t capture_id = -1;
-    int32_t max_tokens = 32;
+    int32_t max_tokens = 64;
     int32_t audio_ctx  = 0;
 
     float vad_thold    = 0.6f;
@@ -84,6 +84,7 @@ private:
 	char finalResultBuffer[1000];
 	
 	void promoteToFinalResult(void);
+	void runWhisper(void);
 	
 	AudioLogger *audioLogger;
 };
