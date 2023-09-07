@@ -45,7 +45,7 @@ RUN cd webrtc-audio-processing && meson . build -Dprefix=$PWD/install && ninja -
 # Build vosk server wrapper and whisper glue code
 ############################################
 
-RUN apt install -y nvidia-cuda-toolkit
+RUN apt install -y nvidia-cuda-toolkit nvidia-utils-535-server
 
 # get boost source code for some boost header files 
 RUN wget -q https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.gz \
@@ -72,7 +72,7 @@ RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o && WHISPER_CUBLAS=1 make whi
 COPY VoskRecognizer.cpp VoskRecognizer.h VADFrame.h VADWrapper.cpp VADWrapper.h RecognitionResult.h \
 AudioLogger.h AudioLogger.cpp vosk_api_wrapper.cpp /
 
-RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -o vosk_whisper_server -I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ \
+RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -DGGML_USE_CUBLAS -o vosk_whisper_server -I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ \
 asr_server.cpp VoskRecognizer.cpp VADWrapper.cpp vosk_api_wrapper.cpp AudioLogger.cpp \
 whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o whisper.cpp/ggml-cuda.o \
 webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
