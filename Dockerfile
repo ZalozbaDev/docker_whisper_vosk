@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM ubuntu:jammy
 MAINTAINER Daniel Sobe <daniel.sobe@sorben.com>
 
 # normal call
@@ -6,6 +6,8 @@ MAINTAINER Daniel Sobe <daniel.sobe@sorben.com>
 
 # rebuild from scratch
 # docker build -t vosk_server_whisper . --no-cache
+
+# RUN sed -i 's/ main/ main contrib non-free/' /etc/apt/sources.list
 
 RUN apt update
 
@@ -43,6 +45,8 @@ RUN cd webrtc-audio-processing && meson . build -Dprefix=$PWD/install && ninja -
 # Build vosk server wrapper and whisper glue code
 ############################################
 
+RUN apt install -y nvidia-cuda-toolkit
+
 # get boost source code for some boost header files 
 RUN wget -q https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.gz \
   && tar xzf boost_1_76_0.tar.gz
@@ -63,16 +67,16 @@ RUN git clone https://github.com/ZalozbaDev/whisper.cpp.git whisper.cpp
 RUN cd whisper.cpp && git checkout a4bb2df36aeb4e6cfb0c1ca9fbcf749ef39cc852
 
 # prepare whisper dependencies
-RUN cd whisper.cpp/ && make ggml.o && make whisper.o
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o && WHISPER_CUBLAS=1 make whisper.o && WHISPER_CUBLAS=1 make ggml-cuda.o
 
 COPY VoskRecognizer.cpp VoskRecognizer.h VADFrame.h VADWrapper.cpp VADWrapper.h RecognitionResult.h \
 AudioLogger.h AudioLogger.cpp vosk_api_wrapper.cpp /
 
 RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -o vosk_whisper_server -I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ \
 asr_server.cpp VoskRecognizer.cpp VADWrapper.cpp vosk_api_wrapper.cpp AudioLogger.cpp \
-whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o  \
+whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o whisper.cpp/ggml-cuda.o \
 webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
--lpthread
+-lpthread -lcublas -lculibos -lcudart -lcublasLt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64
 
 RUN mkdir -p /logs/
 RUN mkdir -p /uasr-data/
