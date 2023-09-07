@@ -25,6 +25,11 @@ VoskRecognizer::VoskRecognizer(int modelId, float sample_rate, const char *confi
 	m_recoState = VoskRecognizerState::UNINIT;
 	
 	m_configPath = std::string(configPath);
+	
+	for (int i = 0; i < 20; i++)
+	{
+		finalResults.push_back(m_configPath);
+	}
 }
 
 //////////////////////////////////////////////
@@ -125,58 +130,14 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 	{
 		if (vad->getUtteranceStatus() == VADWrapperState::IDLE)
 		{
-			// run whisper on the current state of audio buffer
-			whisper_params params;
-			whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-		
-			wparams.print_progress   = false;
-			wparams.print_special    = params.print_special;
-			wparams.print_realtime   = false;
-			wparams.print_timestamps = !params.no_timestamps;
-			wparams.translate        = params.translate;
-			wparams.single_segment   = false; // !use_vad;
-			wparams.max_tokens       = params.max_tokens;
-			wparams.language         = params.language.c_str();
-			wparams.n_threads        = params.n_threads;
-		
-			wparams.audio_ctx        = params.audio_ctx;
-			wparams.speed_up         = params.speed_up;
-		
-			wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
-		
-			// disable temperature fallback
-			//wparams.temperature_inc  = -1.0f;
-			wparams.temperature_inc  = params.no_fallback ? 0.0f : wparams.temperature_inc;
-		
-			wparams.prompt_tokens    = nullptr; // params.no_context ? nullptr : prompt_tokens.data();
-			wparams.prompt_n_tokens  = 0;       // params.no_context ? 0       : prompt_tokens.size();
-		
-			std::cout << "Push audio to whisper, size=" << pcmf32.size() << std::endl;
-			if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0) {
-				fprintf(stderr, "whisper_full(): failed to process audio\n");
-				assert(false);
-			}
-	
-			partialResult.clear();
-			
-			const int n_segments = whisper_full_n_segments(ctx);
-			for (int i = 0; i < n_segments; ++i) {
-				const char * text = whisper_full_get_segment_text(ctx, i);
-		
-				const int64_t t0 = whisper_full_get_segment_t0(ctx, i);
-				const int64_t t1 = whisper_full_get_segment_t1(ctx, i);
-		
-				std::unique_ptr<RecognitionResult> newResult = std::make_unique<RecognitionResult>(const_cast<char*>(text), (unsigned int) t0, (unsigned int) t1, 1.0f);
-				partialResult.push_back(std::move(newResult));
-			}
-			
+			runWhisper();
 			promoteToFinalResult();
 			pcmf32.clear();
 		}
 		else
 		{
 			std::unique_ptr<RecognitionResult> newResult = std::make_unique<RecognitionResult>(const_cast<char*>("."), (unsigned int) 0, (unsigned int) 1, 1.0f);
-			partialResult.push_back(std::move(newResult));
+			// partialResult.push_back(std::move(newResult));
 		}
 	}
 	
@@ -261,5 +222,54 @@ void VoskRecognizer::promoteToFinalResult(void)
 		finalResults.push_back(finalResult);
 		
 		partialResult.clear();
+	}
+}
+
+//////////////////////////////////////////////
+void VoskRecognizer::runWhisper(void)
+{
+	// run whisper on the current state of audio buffer
+	whisper_params params;
+	whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+
+	wparams.print_progress   = false;
+	wparams.print_special    = params.print_special;
+	wparams.print_realtime   = false;
+	wparams.print_timestamps = !params.no_timestamps;
+	wparams.translate        = params.translate;
+	wparams.single_segment   = false; // !use_vad;
+	wparams.max_tokens       = params.max_tokens;
+	wparams.language         = params.language.c_str();
+	wparams.n_threads        = params.n_threads;
+
+	wparams.audio_ctx        = params.audio_ctx;
+	wparams.speed_up         = params.speed_up;
+
+	wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
+
+	// disable temperature fallback
+	//wparams.temperature_inc  = -1.0f;
+	wparams.temperature_inc  = params.no_fallback ? 0.0f : wparams.temperature_inc;
+
+	wparams.prompt_tokens    = nullptr; // params.no_context ? nullptr : prompt_tokens.data();
+	wparams.prompt_n_tokens  = 0;       // params.no_context ? 0       : prompt_tokens.size();
+
+	std::cout << "Push audio to whisper, size=" << pcmf32.size() << std::endl;
+	if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0) {
+		fprintf(stderr, "whisper_full(): failed to process audio\n");
+		assert(false);
+	}
+
+	partialResult.clear();
+	
+	const int n_segments = whisper_full_n_segments(ctx);
+	for (int i = 0; i < n_segments; ++i) {
+		const char * text = whisper_full_get_segment_text(ctx, i);
+
+		const int64_t t0 = whisper_full_get_segment_t0(ctx, i);
+		const int64_t t1 = whisper_full_get_segment_t1(ctx, i);
+
+		std::unique_ptr<RecognitionResult> newResult = std::make_unique<RecognitionResult>(const_cast<char*>(text), (unsigned int) t0, (unsigned int) t1, 1.0f);
+		partialResult.push_back(std::move(newResult));
 	}
 }
