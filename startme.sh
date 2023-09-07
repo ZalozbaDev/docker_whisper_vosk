@@ -7,4 +7,7 @@
 
 nvidia-smi
 
-VOSK_SAMPLE_RATE=48000 /vosk_whisper_server 0.0.0.0 2700 1 /uasr-data/Korla/hsb_stt_demo/tree/main/hsb_whisper/ggml-model.bin
+# VOSK_SAMPLE_RATE=48000 /vosk_whisper_server 0.0.0.0 2700 1 /uasr-data/Korla/hsb_stt_demo/tree/main/hsb_whisper/ggml-model.bin
+
+# VOSK_SAMPLE_RATE=48000 /vosk_whisper_server 0.0.0.0 2700 1 /uasr-data/Korla/hsb_stt_demo/tree/main/hsb_whisper/ggml-model.q4_0.bin
+VOSK_SAMPLE_RATE=48000 /vosk_whisper_server 0.0.0.0 2700 1 /uasr-data/Korla/hsb_stt_demo/tree/main/hsb_whisper/ggml-model.q8_0.bin
