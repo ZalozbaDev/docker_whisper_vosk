@@ -62,19 +62,24 @@ RUN cd vosk-server && git checkout 1faf58f4fbe1609bb2fce319dd7f64a20dd993b5
 RUN cp vosk-api/src/vosk_api.h /
 RUN cp vosk-server/websocket-cpp/asr_server.cpp /
 
+# dummy to trigger rebuild
+RUN touch a
+
 # get whisper.cpp files
 RUN git clone https://github.com/ZalozbaDev/whisper.cpp.git whisper.cpp
-RUN cd whisper.cpp && git checkout a4bb2df36aeb4e6cfb0c1ca9fbcf749ef39cc852
+RUN cd whisper.cpp && git checkout 35d147ec752321f60e3e15b9e3050208bc35809c
 
 # prepare whisper dependencies
 RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o && WHISPER_CUBLAS=1 make whisper.o && WHISPER_CUBLAS=1 make ggml-cuda.o
+# additional file with newer whisper
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 && make ggml-alloc.o
 
 COPY VoskRecognizer.cpp VoskRecognizer.h VADFrame.h VADWrapper.cpp VADWrapper.h RecognitionResult.h \
 AudioLogger.h AudioLogger.cpp vosk_api_wrapper.cpp /
 
 RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -DGGML_USE_CUBLAS -o vosk_whisper_server -I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ \
 asr_server.cpp VoskRecognizer.cpp VADWrapper.cpp vosk_api_wrapper.cpp AudioLogger.cpp \
-whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o whisper.cpp/ggml-cuda.o \
+whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o whisper.cpp/ggml-cuda.o whisper.cpp/ggml-alloc.o \
 webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
 -lpthread -lcublas -lculibos -lcudart -lcublasLt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64
 
