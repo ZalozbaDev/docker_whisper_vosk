@@ -108,7 +108,7 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 		std::cout << "VAD processing error!" << std::endl;	
 	}
 	
-	delete(dsData);
+	delete[] dsData;
 	
 	noMoreData = vad->analyze();
 	
