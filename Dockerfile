@@ -2,10 +2,10 @@ FROM ubuntu:jammy
 MAINTAINER Daniel Sobe <daniel.sobe@sorben.com>
 
 # normal call
-# docker build -t vosk_server_whisper .
+# docker build --progress=plain -t vosk_server_whisper .
 
 # rebuild from scratch
-# docker build -t vosk_server_whisper . --no-cache
+# docker build --progress=plain -t vosk_server_whisper . --no-cache
 
 # RUN sed -i 's/ main/ main contrib non-free/' /etc/apt/sources.list
 
@@ -63,23 +63,28 @@ RUN cp vosk-api/src/vosk_api.h /
 RUN cp vosk-server/websocket-cpp/asr_server.cpp /
 
 # dummy to trigger rebuild
-RUN touch a
+RUN touch b
 
 # get whisper.cpp files
 RUN git clone https://github.com/ZalozbaDev/whisper.cpp.git whisper.cpp
-RUN cd whisper.cpp && git checkout 35d147ec752321f60e3e15b9e3050208bc35809c
+RUN cd whisper.cpp && git checkout v1.5.1
 
 # prepare whisper dependencies
-RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o && WHISPER_CUBLAS=1 make whisper.o && WHISPER_CUBLAS=1 make ggml-cuda.o
-# additional file with newer whisper
-RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 && make ggml-alloc.o
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o 
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make whisper.o 
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml-cuda.o
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml-alloc.o
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml-backend.o
+RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml-quants.o
 
 COPY VoskRecognizer.cpp VoskRecognizer.h VADFrame.h VADWrapper.cpp VADWrapper.h RecognitionResult.h \
 AudioLogger.h AudioLogger.cpp vosk_api_wrapper.cpp /
 
-RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -DGGML_USE_CUBLAS -o vosk_whisper_server -I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ \
+RUN g++ -Wall -Wno-write-strings -std=c++17 -O3 -fPIC -DGGML_USE_CUBLAS -o vosk_whisper_server \
+-I/boost_1_76_0/ -I. -I/whisper.cpp/ -I/whisper.cpp/examples/ -I/webrtc-audio-processing/webrtc/ \
 asr_server.cpp VoskRecognizer.cpp VADWrapper.cpp vosk_api_wrapper.cpp AudioLogger.cpp \
-whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o whisper.cpp/ggml-cuda.o whisper.cpp/ggml-alloc.o \
+whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o \
+whisper.cpp/ggml-cuda.o whisper.cpp/ggml-alloc.o whisper.cpp/ggml-backend.o whisper.cpp/ggml-quants.o \
 webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
 -lpthread -lcublas -lculibos -lcudart -lcublasLt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64
 
