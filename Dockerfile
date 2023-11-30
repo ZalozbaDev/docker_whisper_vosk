@@ -53,7 +53,7 @@ RUN cd vosk-api && git checkout 1053cfa0f80039d2956de7e05a05c0b8db90c3c0
 
 # get VOSK server implementation
 RUN git clone https://github.com/ZalozbaDev/vosk-server.git vosk-server
-RUN cd vosk-server && git checkout 333ac757edd18bb224680cf5460a75afde4a4eba
+RUN cd vosk-server && git checkout 1faf58f4fbe1609bb2fce319dd7f64a20dd993b5
 
 RUN cp vosk-api/src/vosk_api.h /
 RUN cp vosk-server/websocket-cpp/asr_server.cpp /
