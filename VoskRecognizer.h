@@ -39,6 +39,8 @@ struct whisper_params {
     bool no_context    = true;
     bool no_timestamps = false;
     bool tinydiarize   = false;
+    bool save_audio    = false; // save audio to wav file
+    bool use_gpu       = true;
 
     std::string language  = "en";
     std::string model     = "models/ggml-base.en.bin";
@@ -72,6 +74,7 @@ private:
 	
 	std::string m_configPath;
 
+	struct whisper_context_params cparams;
 	struct whisper_context* ctx;
 	const int n_samples_30s  = (1e-3 * 30000.0) * WHISPER_SAMPLE_RATE;
     std::vector<float> pcmf32;

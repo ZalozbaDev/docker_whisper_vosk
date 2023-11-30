@@ -91,10 +91,12 @@ webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
 RUN mkdir -p /logs/
 RUN mkdir -p /uasr-data/
 
+RUN apt install -y gdb
+
 ############################################
 # Vosk server startup script
 ############################################
-    
+
 COPY startme.sh /
 RUN chmod 755 startme.sh
 

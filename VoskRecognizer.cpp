@@ -67,7 +67,9 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 	if (m_recoState == VoskRecognizerState::UNINIT)
 	{
 		// whisper init
-		ctx = whisper_init_from_file(m_configPath.c_str());
+		cparams.use_gpu = true;
+		
+		ctx = whisper_init_from_file_with_params(m_configPath.c_str(), cparams);
 
 		pcmf32.clear();
 		

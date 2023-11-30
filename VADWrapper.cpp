@@ -91,7 +91,7 @@ int VADWrapper::process(int samplingFrequency, const int16_t* audio_frame, size_
 		result = WebRtcVad_Process(rtcVadInst, samplingFrequency, chunk->samples, nrVADSamples);
 		
 		// log every frame result
-		std::cout << result;
+		// std::cout << result;
 		
 		if (result == -1)
 		{
@@ -115,7 +115,7 @@ int VADWrapper::process(int samplingFrequency, const int16_t* audio_frame, size_
 	}
 	
 	// finish logging VAD results
-	std::cout << std::endl;
+	// std::cout << std::endl;
 	
 	// remember leftover data
 	if (frame_ptr < frame_length)
