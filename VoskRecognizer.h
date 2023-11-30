@@ -11,6 +11,9 @@ extern "C" {
 #include <VADWrapper.h>
 #include <RecognitionResult.h>
 #include <AudioLogger.h>
+extern "C" {
+#include "common_audio/signal_processing/include/signal_processing_library.h"
+}
 
 #include "whisper.h"
 
@@ -74,6 +77,10 @@ private:
     std::vector<float> pcmf32;
 	
 	VADWrapper *vad;
+	
+	WebRtcSpl_State48khzTo16khz m_resamplestate_48_to_16;
+	char leftOverData[480*2] = {0};
+	int leftOverDataLen = 0;
 	
 	std::vector<std::unique_ptr<RecognitionResult>> partialResult;
 	

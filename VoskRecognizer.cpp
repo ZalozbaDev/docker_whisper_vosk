@@ -52,7 +52,6 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 {
 	int status;
 	bool noMoreData;
-	char* dsData;
 	
 	// if not yet initalized, do that here and discard this audio
 	if (m_recoState == VoskRecognizerState::UNINIT)
@@ -66,39 +65,51 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 		
 		audioLogger = new AudioLogger(std::string("/logs/"), m_instanceId);
 		
+		WebRtcSpl_ResetResample48khzTo16khz(&m_resamplestate_48_to_16);
+
 		m_recoState = VoskRecognizerState::INIT;
 		
 		return 0;
 	}
 	
-	if ((m_inputSampleRate == 48000) && (m_processingSampleRate == 16000))
+	if ((m_inputSampleRate != 48000) || (m_processingSampleRate != 16000))
 	{
 		// only 48kHz-->16kHz is supported (both VAD and recognizer)
 		// e.g. Jitsi provides 48 kHz so we need to downsample 1:3
-		int ctr = 0;
-		dsData = new char[length / 3];
-		while (ctr < length)
-		{
-			dsData[ctr / 3]       = data[ctr];
-			dsData[(ctr / 3) + 1] = data[ctr + 1];
-			ctr += 6;
-		}
-	}
-	else
-	{
 		std::cout << "Unsupported sampling rates input " << m_inputSampleRate << " Hz and processing " << m_processingSampleRate << "Hz." << std::endl;
 		assert(false);	
 	}
 	
-	// push all data into VADWrapper
-	status = vad->process(m_processingSampleRate, (const int16_t*) dsData, (length / 6));
+	// splitting audio into chunks & resampling to 16kHz
+	const int framelen48=480;
+	const int framelen16=160;
+	int32_t tmp[framelen48 + 256] = { 0 };
+	int16_t buf[framelen16];
 	
-	if (status == -1)
-	{
-		std::cout << "VAD processing error!" << std::endl;	
+	while(leftOverDataLen + length >= framelen48 * 2){
+
+		int useLen = framelen48 * 2 - leftOverDataLen;
+		memcpy(leftOverData + leftOverDataLen, data, useLen);
+		data += useLen;
+		length -= useLen;
+		leftOverDataLen = 0;
+
+		WebRtcSpl_Resample48khzTo16khz((const int16_t*)leftOverData,buf,&m_resamplestate_48_to_16,tmp);
+  
+		// TODO we could remove all leftover handling from VAD
+		status = vad->process(m_processingSampleRate, buf, framelen16);
+	
+		if (status == -1)
+		{
+			std::cout << "VAD processing error!" << std::endl;	
+		}
 	}
-	
-	delete[] dsData;
+
+	if (length > 0)
+	{
+		leftOverDataLen=length;
+		memcpy(leftOverData,data,length);
+	}
 	
 	noMoreData = vad->analyze();
 	
