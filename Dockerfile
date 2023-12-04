@@ -68,6 +68,8 @@ RUN touch b
 # get whisper.cpp files
 RUN git clone https://github.com/ZalozbaDev/whisper.cpp.git whisper.cpp
 RUN cd whisper.cpp && git checkout v1.4.3
+# last known-good version is here:
+# RUN cd whisper.cpp && git checkout ec7a6f0
 
 # prepare whisper dependencies
 RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o 
