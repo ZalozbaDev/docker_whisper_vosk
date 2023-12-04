@@ -91,7 +91,7 @@ webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
 -lpthread -lcublas -lculibos -lcudart -lcublasLt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64
 
 RUN mkdir -p /logs/
-RUN mkdir -p /uasr-data/
+RUN mkdir -p /whisper/
 
 RUN apt install -y gdb
 
