@@ -35,6 +35,12 @@ VoskRecognizer::VoskRecognizer(int modelId, float sample_rate, const char *confi
 		}
 		finalResults.push_back(helloworld);
 	}
+
+	// init static parts already here
+	
+	vad = new VADWrapper(3, m_processingSampleRate);
+	
+	audioLogger = new AudioLogger(std::string("/logs/"), m_instanceId);
 }
 
 //////////////////////////////////////////////
@@ -44,7 +50,11 @@ VoskRecognizer::~VoskRecognizer(void)
 	
 	delete(audioLogger);
 	
-	whisper_free(ctx);
+	// if not yet initalized, do not try to free either
+	if (m_recoState != VoskRecognizerState::UNINIT)
+	{
+		whisper_free(ctx);
+	}
 	
 	m_recoState = VoskRecognizerState::UNINIT;
 	
@@ -72,10 +82,6 @@ int VoskRecognizer::acceptWaveform(const char *data, int length)
 		ctx = whisper_init_from_file_with_params(m_configPath.c_str(), cparams);
 
 		pcmf32.clear();
-		
-		vad = new VADWrapper(3, m_processingSampleRate);
-		
-		audioLogger = new AudioLogger(std::string("/logs/"), m_instanceId);
 		
 		WebRtcSpl_ResetResample48khzTo16khz(&m_resamplestate_48_to_16);
 
