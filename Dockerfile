@@ -55,6 +55,9 @@ RUN wget -q https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boo
 RUN git clone https://github.com/ZalozbaDev/vosk-api.git vosk-api
 RUN cd vosk-api && git checkout 1053cfa0f80039d2956de7e05a05c0b8db90c3c0
 
+# dummy to trigger rebuild
+RUN touch d
+
 # get VOSK server implementation
 RUN git clone https://github.com/ZalozbaDev/vosk-server.git vosk-server
 RUN cd vosk-server && git checkout 21147c33e383f45b942846c9f713789d8bca41d1
@@ -62,14 +65,12 @@ RUN cd vosk-server && git checkout 21147c33e383f45b942846c9f713789d8bca41d1
 RUN cp vosk-api/src/vosk_api.h /
 RUN cp vosk-server/websocket-cpp/asr_server.cpp /
 
-# dummy to trigger rebuild
-RUN touch b
-
 # get whisper.cpp files
 RUN git clone https://github.com/ZalozbaDev/whisper.cpp.git whisper.cpp
-RUN cd whisper.cpp && git checkout v1.4.3
-# last known-good version is here:
-# RUN cd whisper.cpp && git checkout ec7a6f0
+RUN cd whisper.cpp && git checkout v1.5.2_custom
+
+# use this line to test other commits
+# RUN cd whisper.cpp && git checkout f9ca90256bf6
 
 # prepare whisper dependencies
 RUN cd whisper.cpp/ && WHISPER_CUBLAS=1 make ggml.o 
@@ -88,7 +89,7 @@ asr_server.cpp VoskRecognizer.cpp VADWrapper.cpp vosk_api_wrapper.cpp AudioLogge
 whisper.cpp/examples/common.cpp whisper.cpp/examples/common-ggml.cpp  whisper.cpp/ggml.o whisper.cpp/whisper.o \
 whisper.cpp/ggml-cuda.o whisper.cpp/ggml-alloc.o whisper.cpp/ggml-backend.o whisper.cpp/ggml-quants.o \
 webrtc-audio-processing/build/webrtc/common_audio/libcommon_audio.a \
--lpthread -lcublas -lculibos -lcudart -lcublasLt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64
+-lpthread -lcuda -lcublas -lculibos -lcudart -lcublasLt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64
 
 RUN mkdir -p /logs/
 RUN mkdir -p /whisper/
